@@ -1,17 +1,43 @@
 {
   "name": "compresorelectronapp",
   "version": "1.0.0",
-  "description": "",
+  "description": "Compresor de Archivos para Windows",
   "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
+  "author": "Raúl",
   "license": "ISC",
   "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "package-win": "electron-packager . CompresorElectronApp --platform=win32 --arch=x64 --icon=icono.ico --out=dist --overwrite",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.raul.compresor",
+    "productName": "Compresor de Archivos",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "frontend/**/*",
+      "icono.ico",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icono.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Compresor de Archivos"
+    }
+  },
   "devDependencies": {
-    "electron": "^37.2.4"
+    "electron": "^37.2.4",
+    "electron-builder": "^26.0.12",
+    "electron-packager": "^17.1.2"
   }
 }
