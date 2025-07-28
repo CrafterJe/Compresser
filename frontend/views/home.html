@@ -10,13 +10,13 @@
   <p>Selecciona el tipo de archivo que deseas comprimir:</p>
 
   <div class="card-grid">
-    <div class="card" onclick="window.location.href='vista_jpeg.html'">
+    <div class="card disabled" onclick="mostrarModal()">
       <img src="../assets/imgs/jpeg.png" class="icono" alt="JPEG">
       <div class="card-title">JPEG</div>
       <div class="card-desc">Comprime imágenes .jpeg</div>
     </div>
 
-    <div class="card" onclick="window.location.href='vista_png.html'">
+    <div class="card disabled" onclick="mostrarModal()">
       <img src="../assets/imgs/png.png" class="icono" alt="PNG">
       <div class="card-title">PNG</div>
       <div class="card-desc">Optimiza imágenes .png</div>
@@ -28,17 +28,41 @@
       <div class="card-desc">Reduce tamaño de archivos .pdf</div>
     </div>
 
-    <div class="card" onclick="window.location.href='vista_docx.html'">
+    <div class="card disabled" onclick="mostrarModal()">
       <img src="../assets/imgs/docx.png" class="icono" alt="DOCX">
       <div class="card-title">DOCX</div>
       <div class="card-desc">Comprime documentos de Word</div>
     </div>
 
-    <div class="card" onclick="window.location.href='vista_pptx.html'">
+    <div class="card disabled" onclick="mostrarModal()">
       <img src="../assets/imgs/pptx.png" class="icono" alt="PPTX">
       <div class="card-title">PPTX</div>
       <div class="card-desc">Reduce presentaciones PowerPoint</div>
     </div>
   </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <h2>🔧 En desarrollo</h2>
+      <p>Esta funcionalidad aún está en proceso.</p>
+      <button onclick="cerrarModal()">Aceptar</button>
+    </div>
+  </div>
+
+  <script>
+    function mostrarModal() {
+      document.getElementById('modal').classList.add('show');
+    }
+
+    function cerrarModal() {
+      document.getElementById('modal').classList.remove('show');
+    }
+
+    // Opcional: cerrar modal haciendo clic fuera del contenido
+    document.getElementById('modal').addEventListener('click', function(e) {
+      if (e.target.id === 'modal') cerrarModal();
+    });
+  </script>
 </body>
 </html>

@@ -47,3 +47,43 @@ body {
       font-size: 14px;
       margin-top: 5px;
     }
+
+    .disabled {
+      opacity: 0.5;
+      pointer-events: auto;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      max-width: 300px;
+      text-align: center;
+    }
+
+    .modal-content h2 {
+      margin-top: 0;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }

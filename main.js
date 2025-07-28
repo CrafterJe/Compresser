@@ -1,4 +1,3 @@
-// main.js
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
@@ -7,9 +6,9 @@ function crearVentanaPrincipal() {
     width: 850,
     height: 650,
     webPreferences: {
-      preload: path.join(__dirname, 'frontend', 'js', 'app.js'),
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      enableRemoteModule: true,
     }
   });
 

@@ -4,6 +4,27 @@
   <meta charset="UTF-8">
   <title>Comprimir PDF</title>
   <link rel="stylesheet" href="../css/vista_pdf.css">
+  <style>
+    .nivel-info {
+      font-size: 11px;
+      color: #666;
+      margin-left: 5px;
+      font-style: italic;
+    }
+    .select-compresion select {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+    }
+    .nivel-descripcion {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f0f8ff;
+      border-left: 4px solid #2196F3;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body>
   <div class="card">
@@ -22,16 +43,41 @@
     <div class="select-compresion">
       <label for="nivelCompresion"><strong>Nivel de compresión:</strong></label><br>
       <select id="nivelCompresion">
-        <option value="seguro">🛡️ Seguro (menos agresivo)</option>
-        <option value="maximo">🔥 Máximo (puede alterar estructuras)</option>
+        <option value="baja">🟢 Baja - Se ve perfecto (reducción: ~15-30%)</option>
+        <option value="media" selected>🟡 Media - Se ve bien (reducción: ~40-60%)</option>
+        <option value="alta">🟠 Alta - Se ve aceptable (reducción: ~60-80%)</option>
+        <option value="maxima">🔴 Máxima - Se ve con baja calidad pero pesa nada (reducción: ~80-90%)</option>
       </select>
+      
+      <div id="descripcionNivel" class="nivel-descripcion">
+        <strong>Media:</strong> Equilibrio perfecto entre calidad y tamaño. Recomendado para la mayoría de casos.
+      </div>
     </div>
 
     <button id="comprimirBtn">Comprimir PDF</button>
+    <div id="loading" style="display:none; margin-top: 15px; font-weight: bold;">⏳ Comprimiendo...</div>
+    <div id="success" style="display:none; margin-top: 15px; font-weight: bold; color: green;">✅ Todos los archivos fueron comprimidos correctamente</div>
 
     <div id="resultado"></div>
   </div>
 
+  <script>
+    // Cambiar descripción según el nivel seleccionado
+    const nivelSelect = document.getElementById('nivelCompresion');
+    const descripcion = document.getElementById('descripcionNivel');
+    
+    const descripciones = {
+      'baja': '<strong>Baja:</strong> Mantiene casi la calidad original. Ideal para documentos importantes o presentaciones profesionales.',
+      'media': '<strong>Media:</strong> Equilibrio perfecto entre calidad y tamaño. Recomendado para la mayoría de casos.',
+      'alta': '<strong>Alta:</strong> Notarás algo de pérdida de calidad pero el archivo será mucho más pequeño. Bueno para compartir por email.',
+      'maxima': '<strong>Máxima:</strong> La calidad se ve claramente afectada, pero el archivo será mínimo. Solo para casos donde el tamaño es crítico.'
+    };
+    
+    nivelSelect.addEventListener('change', function() {
+      descripcion.innerHTML = descripciones[this.value];
+    });
+  </script>
+  
   <script src="../js/app.js"></script>
 </body>
 </html>
