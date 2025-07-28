@@ -3,6 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+// Mapear nombres de carpetas según el idioma (simplificado)
+const folderNames = {
+  en: { downloads: 'Downloads', desktop: 'Desktop' },
+  es: { downloads: 'Descargas', desktop: 'Escritorio' }
+};
+
+// Detectar idioma del sistema (aproximación basada en la plataforma)
+const systemLanguage = os.platform() === 'win32' ? 'en' : 'es'; // Simplificación: Windows usa inglés, otros (como Linux/macOS) pueden usar español
+const localizedFolders = folderNames[systemLanguage] || folderNames.en;
+
 module.exports = function () {
   const comprimirBtn = document.getElementById('comprimirBtn');
   const archivoInput = document.getElementById('pdfInput');
@@ -13,7 +23,7 @@ module.exports = function () {
   const success = document.getElementById('success');
 
   // Carpeta donde se guardarán los archivos comprimidos
-  let carpetaDestino = path.join(os.homedir(), 'Downloads'); // Por defecto: Descargas
+  let carpetaDestino = path.join(os.homedir(), localizedFolders.downloads); // Por defecto: Descargas o Downloads
 
   // Crear interfaz para seleccionar carpeta de destino
   const contenedorCarpeta = document.createElement('div');
@@ -58,8 +68,14 @@ module.exports = function () {
   }
 
   // Función para seleccionar carpeta
+  let folderInput = null; // Variable para rastrear el input actual
   btnCarpeta.addEventListener('click', () => {
-    const folderInput = document.createElement('input');
+    // Eliminar el input anterior si existe
+    if (folderInput) {
+      document.body.removeChild(folderInput);
+    }
+
+    folderInput = document.createElement('input');
     folderInput.type = 'file';
     folderInput.webkitdirectory = true;
     folderInput.style.display = 'none';
@@ -68,31 +84,31 @@ module.exports = function () {
       if (e.target.files.length > 0) {
         // Obtener la carpeta seleccionada
         const primerArchivo = e.target.files[0];
-        const rutaCompleta = primerArchivo.webkitRelativePath || '';
-        
-        if (rutaCompleta) {
-          // Extraer solo la ruta de la carpeta (sin el archivo)
-          const partesRuta = rutaCompleta.split('/');
+        const rutaRelativa = primerArchivo.webkitRelativePath || '';
+
+        if (rutaRelativa) {
+          const partesRuta = rutaRelativa.split('/');
           partesRuta.pop(); // Quitar el nombre del archivo
           const carpetaRelativa = partesRuta.join('/');
-          
-          // Construir ruta absoluta (esto es una aproximación)
-          carpetaDestino = path.join(os.homedir(), 'Downloads', carpetaRelativa);
+
+          // Usar la carpeta seleccionada como destino absoluto
+          carpetaDestino = path.join(os.homedir(), carpetaRelativa || ''); // Si no hay ruta relativa, usa el directorio raíz
           btnCarpeta.textContent = `📁 ${carpetaDestino}`;
-          
+
           console.log('Nueva carpeta de destino:', carpetaDestino);
         }
       }
       document.body.removeChild(folderInput);
+      folderInput = null; // Limpiar la referencia
     });
     
     document.body.appendChild(folderInput);
     folderInput.click();
   });
 
-  // Botón rápido para Downloads
+  // Botón rápido para Downloads/Descargas
   const btnDownloads = document.createElement('button');
-  btnDownloads.textContent = '⬇️ Usar Descargas';
+  btnDownloads.textContent = '⬇️ Usar ' + localizedFolders.downloads;
   btnDownloads.type = 'button';
   btnDownloads.style.cssText = `
     background-color: #4CAF50;
@@ -106,18 +122,18 @@ module.exports = function () {
   `;
   
   btnDownloads.addEventListener('click', () => {
-    carpetaDestino = path.join(os.homedir(), 'Downloads');
+    carpetaDestino = path.join(os.homedir(), localizedFolders.downloads);
     btnCarpeta.textContent = `📁 ${carpetaDestino}`;
   });
 
-  // Botón rápido para Escritorio
+  // Botón rápido para Desktop/Escritorio
   const btnEscritorio = document.createElement('button');
-  btnEscritorio.textContent = '🖥️ Usar Escritorio';
+  btnEscritorio.textContent = '🖥️ Usar ' + localizedFolders.desktop;
   btnEscritorio.type = 'button';
   btnEscritorio.style.cssText = btnDownloads.style.cssText.replace('#4CAF50', '#FF9800');
   
   btnEscritorio.addEventListener('click', () => {
-    carpetaDestino = path.join(os.homedir(), 'Desktop');
+    carpetaDestino = path.join(os.homedir(), localizedFolders.desktop);
     btnCarpeta.textContent = `📁 ${carpetaDestino}`;
   });
 
@@ -161,7 +177,7 @@ module.exports = function () {
   }
 
   function obtenerCarpetaOriginal(file) {
-    // Como el navegador no proporciona la ruta real, usar la carpeta seleccionada por el usuario
+    // Usar la carpeta seleccionada por el usuario
     return carpetaDestino;
   }
 
