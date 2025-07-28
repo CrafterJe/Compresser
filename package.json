@@ -39,5 +39,8 @@
     "electron": "^37.2.4",
     "electron-builder": "^26.0.12",
     "electron-packager": "^17.1.2"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.3"
   }
 }

@@ -16,52 +16,84 @@ def comprimir_pdf(ruta: str, nivel: str = 'media') -> str:
     - 'maxima': Compresión extrema, baja calidad (muy pequeño)
     """
     nombre_original = os.path.basename(ruta)
-    carpeta = os.path.dirname(ruta)
+    carpeta = tempfile.gettempdir()
     nombre_salida = nombre_original.replace('.pdf', '_comprimido.pdf')
     ruta_salida = os.path.join(carpeta, nombre_salida)
 
-    # Configuraciones por nivel
     configuraciones = {
-        'baja': {
-            'dpi': 200,
-            'calidad_jpeg': 85,
-            'max_dimension': 1500,
-            'metodo': 'conservador'
-        },
-        'media': {
-            'dpi': 150,
-            'calidad_jpeg': 70,
-            'max_dimension': 1200,
-            'metodo': 'hibrido'
-        },
-        'alta': {
-            'dpi': 120,
-            'calidad_jpeg': 55,
-            'max_dimension': 900,
-            'metodo': 'agresivo'
-        },
-        'maxima': {
-            'dpi': 100,
-            'calidad_jpeg': 40,
-            'max_dimension': 700,
-            'metodo': 'extremo'
-        }
+        'baja': {'dpi': 200, 'calidad_jpeg': 85, 'max_dimension': 1500, 'metodo': 'conservador'},
+        'media': {'dpi': 150, 'calidad_jpeg': 70, 'max_dimension': 1200, 'metodo': 'hibrido'},
+        'alta': {'dpi': 120, 'calidad_jpeg': 55, 'max_dimension': 900, 'metodo': 'agresivo'},
+        'maxima': {'dpi': 100, 'calidad_jpeg': 40, 'max_dimension': 700, 'metodo': 'extremo'}
     }
     
     config = configuraciones.get(nivel, configuraciones['media'])
     
     try:
         if config['metodo'] == 'conservador':
-            return comprimir_pdf_conservador(ruta, ruta_salida, config)
+            resultado = comprimir_pdf_conservador(ruta, ruta_salida, config)
         elif config['metodo'] == 'hibrido':
-            return comprimir_pdf_hibrido(ruta, ruta_salida, config)
-        else:  # agresivo o extremo
-            return comprimir_pdf_agresivo_config(ruta, ruta_salida, config)
+            resultado = comprimir_pdf_hibrido(ruta, ruta_salida, config)
+        else:
+            resultado = comprimir_pdf_agresivo_config(ruta, ruta_salida, config)
+            
+        if os.path.exists(resultado):
+            tamaño = os.path.getsize(resultado)
+            print(f"Archivo comprimido creado en {resultado} con tamaño: {tamaño} bytes")
+        else:
+            print(f"Error: El archivo {resultado} no se creó")
+        return resultado
             
     except Exception as e:
         print(f"Error con método principal: {e}")
-        # Fallback siempre funcional
         return comprimir_pdf_simple_mejorado(ruta, ruta_salida)
+
+def comprimir_pdf_hibrido(ruta_entrada: str, ruta_salida: str, config: dict) -> str:
+    """
+    Compresión balanceada: buena calidad y reducción decente.
+    El mejor equilibrio para uso general.
+    """
+    doc_original = fitz.open(ruta_entrada)
+    doc_nuevo = fitz.open()
+    
+    print(f"Aplicando compresión EQUILIBRADA...")
+    
+    try:
+        for num_pagina in range(doc_original.page_count):
+            if num_pagina % 10 == 0:
+                print(f"Procesando página {num_pagina + 1}/{doc_original.page_count}")
+                
+            pagina_original = doc_original[num_pagina]
+            pagina_nueva = doc_nuevo.new_page(
+                width=pagina_original.rect.width,
+                height=pagina_original.rect.height
+            )
+            
+            try:
+                success = procesar_pagina_equilibrada(pagina_original, pagina_nueva, config)
+                
+                if not success:
+                    matriz = fitz.Matrix(0.8, 0.8)
+                    pix = pagina_original.get_pixmap(matrix=matriz, alpha=False)
+                    img_data = pix.tobytes("jpeg", jpg_quality=config['calidad_jpeg'])
+                    pagina_nueva.insert_image(pagina_nueva.rect, stream=img_data)
+                    pix = None
+                    
+            except Exception as e:
+                print(f"Error en página {num_pagina}: {e}")
+                try:
+                    pagina_nueva.show_pdf_page(pagina_nueva.rect, doc_original, num_pagina)
+                except Exception as e2:
+                    print(f"Fallback falló en página {num_pagina}: {e2}")
+                    pass
+        
+        doc_nuevo.save(ruta_salida, garbage=3, deflate=True, clean=True)
+    finally:
+        doc_original.close()
+        doc_nuevo.close()
+        print(f"Recursos cerrados para {ruta_salida}")
+    
+    return ruta_salida
 
 def comprimir_pdf_conservador(ruta_entrada: str, ruta_salida: str, config: dict) -> str:
     """

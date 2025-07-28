@@ -3,14 +3,29 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// Mapear nombres de carpetas según el idioma (simplificado)
+// HABILITAR REMOTE MODULE SI NO ESTÁ HABILITADO
+if (typeof require !== 'undefined') {
+  try {
+    // Intentar habilitar remote si existe
+    if (require('electron').remote) {
+      console.log('Remote module ya disponible');
+    } else {
+      // Para versiones nuevas de Electron, usar @electron/remote
+      require('@electron/remote/main').initialize();
+    }
+  } catch (e) {
+    console.log('Remote module no disponible:', e.message);
+  }
+}
+
+// Mapear nombres de carpetas según el idioma
 const folderNames = {
   en: { downloads: 'Downloads', desktop: 'Desktop' },
   es: { downloads: 'Descargas', desktop: 'Escritorio' }
 };
 
-// Detectar idioma del sistema (aproximación basada en la plataforma)
-const systemLanguage = os.platform() === 'win32' ? 'en' : 'es'; // Simplificación: Windows usa inglés, otros (como Linux/macOS) pueden usar español
+// Detectar idioma del sistema
+const systemLanguage = os.platform() === 'win32' ? 'en' : 'es';
 const localizedFolders = folderNames[systemLanguage] || folderNames.en;
 
 module.exports = function () {
@@ -23,7 +38,11 @@ module.exports = function () {
   const success = document.getElementById('success');
 
   // Carpeta donde se guardarán los archivos comprimidos
-  let carpetaDestino = path.join(os.homedir(), localizedFolders.downloads); // Por defecto: Descargas o Downloads
+  let carpetaDestino = path.join(os.homedir(), localizedFolders.downloads);
+  
+  // Variable para controlar el estado del selector
+  let selectorConfigurado = false;
+  let dialogMethod = null; // 'ipc', 'remote', 'web'
 
   // Crear interfaz para seleccionar carpeta de destino
   const contenedorCarpeta = document.createElement('div');
@@ -38,7 +57,7 @@ module.exports = function () {
   const labelCarpeta = document.createElement('label');
   labelCarpeta.innerHTML = '<strong>Guardar archivos comprimidos en:</strong>';
   
-  const btnCarpeta = document.createElement('button');
+  let btnCarpeta = document.createElement('button');
   btnCarpeta.textContent = `📁 ${carpetaDestino}`;
   btnCarpeta.className = 'btn-carpeta';
   btnCarpeta.type = 'button';
@@ -67,46 +86,203 @@ module.exports = function () {
     nivelCompresion.parentNode.insertBefore(contenedorCarpeta, nivelCompresion.nextSibling);
   }
 
-  // Función para seleccionar carpeta
-  let folderInput = null; // Variable para rastrear el input actual
-  btnCarpeta.addEventListener('click', () => {
-    // Eliminar el input anterior si existe
-    if (folderInput) {
-      document.body.removeChild(folderInput);
+  // FUNCIÓN PARA CONFIGURAR EL SELECTOR UNA SOLA VEZ
+  async function configurarSelector() {
+    if (selectorConfigurado) {
+      console.log('🛑 Selector ya configurado, saltando...');
+      return;
     }
 
-    folderInput = document.createElement('input');
-    folderInput.type = 'file';
-    folderInput.webkitdirectory = true;
-    folderInput.style.display = 'none';
-    
-    folderInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        // Obtener la carpeta seleccionada
-        const primerArchivo = e.target.files[0];
-        const rutaRelativa = primerArchivo.webkitRelativePath || '';
+    console.log('🔧 Configurando selector de carpetas...');
 
-        if (rutaRelativa) {
-          const partesRuta = rutaRelativa.split('/');
-          partesRuta.pop(); // Quitar el nombre del archivo
-          const carpetaRelativa = partesRuta.join('/');
+    // MÉTODO 1: IPC (moderno y seguro)
+    if (await intentarIPC()) {
+      dialogMethod = 'ipc';
+      selectorConfigurado = true;
+      console.log('✅ Configurado con IPC');
+      return;
+    }
 
-          // Usar la carpeta seleccionada como destino absoluto
-          carpetaDestino = path.join(os.homedir(), carpetaRelativa || ''); // Si no hay ruta relativa, usa el directorio raíz
-          btnCarpeta.textContent = `📁 ${carpetaDestino}`;
+    // MÉTODO 2: Remote (tradicional)
+    if (await intentarRemote()) {
+      dialogMethod = 'remote';
+      selectorConfigurado = true;
+      console.log('✅ Configurado con Remote');
+      return;
+    }
 
-          console.log('Nueva carpeta de destino:', carpetaDestino);
+    // MÉTODO 3: Web (fallback)
+    configurarSelectorWeb();
+    dialogMethod = 'web';
+    selectorConfigurado = true;
+    console.log('✅ Configurado con Web (limitado)');
+  }
+
+  // MÉTODO IPC
+  async function intentarIPC() {
+    try {
+      if (!window.require) return false;
+      
+      const electron = window.require('electron');
+      if (!electron.ipcRenderer) return false;
+
+      const { ipcRenderer } = electron;
+      
+      // SOLO verificar que ipcRenderer existe, NO hacer prueba que abra dialog
+      console.log('🔧 IPC disponible, configurando...');
+
+      // Configurar el event listener UNA SOLA VEZ
+      btnCarpeta.onclick = async function() {
+        try {
+          btnCarpeta.disabled = true;
+          console.log('📂 Abriendo dialog via IPC...');
+          
+          const result = await ipcRenderer.invoke('show-open-dialog', {
+            properties: ['openDirectory'],
+            title: 'Seleccionar carpeta de destino',
+            defaultPath: carpetaDestino
+          });
+          
+          if (result && !result.canceled && result.filePaths && result.filePaths.length > 0) {
+            carpetaDestino = result.filePaths[0];
+            btnCarpeta.textContent = `📁 ${carpetaDestino}`;
+            console.log('✅ Carpeta seleccionada via IPC:', carpetaDestino);
+          } else {
+            console.log('🚫 Selección cancelada');
+          }
+        } catch (error) {
+          console.error('❌ Error con IPC:', error);
+          resultado.innerHTML += `<p style="color:red">❌ Error: ${error.message}</p>`;
+        } finally {
+          btnCarpeta.disabled = false;
+        }
+      };
+
+      return true;
+    } catch (error) {
+      console.log('❌ IPC no disponible:', error.message);
+      return false;
+    }
+  }
+
+  // MÉTODO REMOTE
+  async function intentarRemote() {
+    try {
+      if (!window.require) return false;
+      
+      let dialog = null;
+      const electron = window.require('electron');
+      
+      // Intentar @electron/remote
+      try {
+        dialog = window.require('@electron/remote').dialog;
+        console.log('🔧 @electron/remote disponible');
+      } catch (e) {
+        // Intentar remote tradicional
+        if (electron.remote) {
+          dialog = electron.remote.dialog;
+          console.log('🔧 Remote tradicional disponible');
         }
       }
-      document.body.removeChild(folderInput);
-      folderInput = null; // Limpiar la referencia
-    });
-    
-    document.body.appendChild(folderInput);
-    folderInput.click();
-  });
 
-  // Botón rápido para Downloads/Descargas
+      // SOLO verificar que dialog existe, NO hacer prueba
+      if (!dialog || !dialog.showOpenDialog) return false;
+
+      // Configurar el event listener UNA SOLA VEZ
+      btnCarpeta.onclick = async function() {
+        try {
+          btnCarpeta.disabled = true;
+          console.log('📂 Abriendo dialog remote...');
+          
+          const result = await dialog.showOpenDialog({
+            properties: ['openDirectory'],
+            title: 'Seleccionar carpeta de destino',
+            defaultPath: carpetaDestino
+          });
+          
+          if (result && !result.canceled && result.filePaths && result.filePaths.length > 0) {
+            carpetaDestino = result.filePaths[0];
+            btnCarpeta.textContent = `📁 ${carpetaDestino}`;
+            console.log('✅ Carpeta seleccionada con remote:', carpetaDestino);
+          }
+        } catch (error) {
+          console.error('❌ Error con remote:', error);
+          resultado.innerHTML += `<p style="color:red">❌ Error: ${error.message}</p>`;
+        } finally {
+          btnCarpeta.disabled = false;
+        }
+      };
+
+      return true;
+    } catch (error) {
+      console.log('❌ Remote no disponible:', error.message);
+      return false;
+    }
+  }
+
+  // MÉTODO WEB (FALLBACK MEJORADO)
+  function configurarSelectorWeb() {
+    btnCarpeta.onclick = function() {
+      // Crear input file una sola vez por click
+      const folderInput = document.createElement('input');
+      folderInput.type = 'file';
+      folderInput.webkitdirectory = true;
+      folderInput.multiple = true;
+      folderInput.style.display = 'none';
+      
+      folderInput.onchange = function(e) {
+        if (e.target.files.length > 0) {
+          const primerArchivo = e.target.files[0];
+          
+          // Obtener ruta completa si está disponible (Electron)
+          if (primerArchivo.path) {
+            const rutaCarpeta = path.dirname(primerArchivo.path);
+            carpetaDestino = rutaCarpeta;
+            btnCarpeta.textContent = `📁 ${rutaCarpeta}`;
+            console.log('✅ Ruta completa:', rutaCarpeta);
+          } else {
+            // Fallback: buscar rutas comunes
+            const rutaRelativa = primerArchivo.webkitRelativePath;
+            if (rutaRelativa) {
+              const nombreCarpeta = rutaRelativa.split('/')[0];
+              
+              const posiblesRutas = [
+                path.join(os.homedir(), 'OneDrive', 'Desktop', nombreCarpeta),
+                path.join(os.homedir(), 'OneDrive', 'Escritorio', nombreCarpeta),
+                path.join(os.homedir(), 'Desktop', nombreCarpeta),
+                path.join(os.homedir(), 'Escritorio', nombreCarpeta)
+              ];
+              
+              let rutaEncontrada = false;
+              for (const rutaPosible of posiblesRutas) {
+                if (fs.existsSync(rutaPosible)) {
+                  carpetaDestino = rutaPosible;
+                  btnCarpeta.textContent = `📁 ${rutaPosible}`;
+                  console.log('✅ Ruta encontrada:', rutaPosible);
+                  rutaEncontrada = true;
+                  break;
+                }
+              }
+              
+              if (!rutaEncontrada) {
+                carpetaDestino = path.join(os.homedir(), localizedFolders.downloads);
+                btnCarpeta.textContent = `📁 ${carpetaDestino} (fallback)`;
+                resultado.innerHTML += `<p style="color:orange">⚠️ Usando Downloads como destino</p>`;
+              }
+            }
+          }
+        }
+        
+        // Remover el input
+        document.body.removeChild(folderInput);
+      };
+      
+      document.body.appendChild(folderInput);
+      folderInput.click();
+    };
+  }
+
+  // Botones rápidos
   const btnDownloads = document.createElement('button');
   btnDownloads.textContent = '⬇️ Usar ' + localizedFolders.downloads;
   btnDownloads.type = 'button';
@@ -121,24 +297,33 @@ module.exports = function () {
     font-size: 11px;
   `;
   
-  btnDownloads.addEventListener('click', () => {
+  btnDownloads.onclick = function() {
     carpetaDestino = path.join(os.homedir(), localizedFolders.downloads);
     btnCarpeta.textContent = `📁 ${carpetaDestino}`;
-  });
+    console.log('📁 Cambiado a Downloads:', carpetaDestino);
+  };
 
-  // Botón rápido para Desktop/Escritorio
   const btnEscritorio = document.createElement('button');
   btnEscritorio.textContent = '🖥️ Usar ' + localizedFolders.desktop;
   btnEscritorio.type = 'button';
   btnEscritorio.style.cssText = btnDownloads.style.cssText.replace('#4CAF50', '#FF9800');
   
-  btnEscritorio.addEventListener('click', () => {
+  btnEscritorio.onclick = function() {
     carpetaDestino = path.join(os.homedir(), localizedFolders.desktop);
     btnCarpeta.textContent = `📁 ${carpetaDestino}`;
-  });
+    console.log('🖥️ Cambiado a Desktop:', carpetaDestino);
+  };
 
   contenedorCarpeta.appendChild(btnDownloads);
   contenedorCarpeta.appendChild(btnEscritorio);
+
+  // INICIALIZAR EL SELECTOR
+  configurarSelector().catch(error => {
+    console.error('❌ Error configurando selector:', error);
+    configurarSelectorWeb();
+    dialogMethod = 'web';
+    selectorConfigurado = true;
+  });
 
   // Cambiar entre subir uno o varios archivos
   if (modoRadios.length > 0 && archivoInput) {
@@ -157,6 +342,21 @@ module.exports = function () {
     });
   }
 
+  // Función para validar carpeta de destino
+  async function validarCarpetaDestino() {
+    return new Promise((resolve) => {
+      fs.access(carpetaDestino, fs.constants.W_OK, (err) => {
+        if (err) {
+          console.error('❌ Carpeta no accesible:', carpetaDestino);
+          carpetaDestino = path.join(os.homedir(), localizedFolders.downloads);
+          btnCarpeta.textContent = `📁 ${carpetaDestino} (fallback)`;
+          resultado.innerHTML += `<p style="color:orange">⚠️ Usando Downloads como alternativa</p>`;
+        }
+        resolve(carpetaDestino);
+      });
+    });
+  }
+
   async function guardarArchivoTemporal(file) {
     const tempDir = os.tmpdir();
     const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -168,7 +368,7 @@ module.exports = function () {
         const buffer = Buffer.from(e.target.result);
         fs.writeFile(tempPath, buffer, (err) => {
           if (err) reject(err);
-          else resolve(tempPath);
+          else resolve({ tempPath, originalName: file.name });
         });
       };
       reader.onerror = reject;
@@ -176,11 +376,7 @@ module.exports = function () {
     });
   }
 
-  function obtenerCarpetaOriginal(file) {
-    // Usar la carpeta seleccionada por el usuario
-    return carpetaDestino;
-  }
-
+  // Función principal de compresión
   if (comprimirBtn && archivoInput && nivelCompresion) {
     comprimirBtn.addEventListener('click', async () => {
       const archivos = archivoInput.files;
@@ -194,72 +390,83 @@ module.exports = function () {
         return;
       }
 
+      await validarCarpetaDestino();
+
       loading.style.display = "block";
       comprimirBtn.disabled = true;
 
       let completados = 0;
+      let exitosos = 0;
+
+      console.log(`🚀 Procesando ${archivos.length} archivos, guardando en: ${carpetaDestino}`);
 
       for (let i = 0; i < archivos.length; i++) {
         const archivo = archivos[i];
         
         try {
-          console.log("🧾 Archivo recibido:", archivo.name);
+          console.log(`📄 [${i+1}/${archivos.length}] Procesando:`, archivo.name);
           
-          // Crear archivo temporal
-          const rutaArchivo = await guardarArchivoTemporal(archivo);
-          console.log("📂 Ruta temporal creada:", rutaArchivo);
+          const { tempPath, originalName } = await guardarArchivoTemporal(archivo);
 
           execFile(
             'python',
-            ['compress.py', '--tipo', 'pdf', '--ruta', rutaArchivo, '--nivel', nivel],
+            ['compress.py', '--tipo', 'pdf', '--ruta', tempPath, '--nivel', nivel],
             { cwd: path.resolve(__dirname, '../../../') },
             (error, stdout, stderr) => {
               completados++;
 
               // Limpiar archivo temporal
-              fs.unlink(rutaArchivo, (err) => {
-                if (err) console.warn('No se pudo eliminar archivo temporal:', err);
-              });
+              fs.unlink(tempPath, () => {});
 
               if (error) {
-                resultado.innerHTML += `<p style="color:red">❌ Error al comprimir ${archivo.name}</p>`;
-                console.error(stderr || error.message);
+                resultado.innerHTML += `<p style="color:red">❌ ${archivo.name}: ${stderr || error.message}</p>`;
               } else {
-                console.log(stdout);
-              
                 const match = stdout.match(/PDF comprimido correctamente:\s*(.*\.pdf)/i);
                 if (match) {
                   const rutaComprimido = match[1].trim();
-                  const nombreFinal = path.basename(rutaComprimido);
-                  const destinoFinal = path.join(carpetaDestino, nombreFinal);
-                
-                  // Copiar a carpeta destino
-                  fs.copyFile(rutaComprimido, destinoFinal, (err) => {
-                    if (err) {
-                      resultado.innerHTML += `<p style="color:red">❌ Error al mover ${archivo.name} a carpeta destino</p>`;
-                      console.error(err);
-                    } else {
-                      resultado.innerHTML += `<p style="color:green">✅ ${archivo.name} guardado en: ${destinoFinal}</p>`;
-                      console.log("📁 Copiado a:", destinoFinal);
-                    }
-                  });
-                } else {
-                  resultado.innerHTML += `<p style="color:red">❌ No se detectó la salida del PDF comprimido</p>`;
+
+                  setTimeout(() => {
+                    fs.access(rutaComprimido, fs.constants.R_OK, (err) => {
+                      if (err) {
+                        resultado.innerHTML += `<p style="color:red">❌ ${archivo.name}: Archivo no encontrado</p>`;
+                        return;
+                      }
+
+                      // GENERAR NOMBRE FINAL LIMPIO
+                      const nombreBase = originalName.replace(/\.pdf$/i, '');
+                      const nombreFinal = `${nombreBase}_comprimido.pdf`;
+                      const destinoFinal = path.join(carpetaDestino, nombreFinal);
+                      
+                      fs.copyFile(rutaComprimido, destinoFinal, (copyErr) => {
+                        if (copyErr) {
+                          resultado.innerHTML += `<p style="color:red">❌ ${archivo.name}: Error al guardar</p>`;
+                        } else {
+                          exitosos++;
+                          resultado.innerHTML += `<p style="color:green">✅ ${archivo.name} → ${nombreFinal}</p>`;
+                          
+                          // Limpiar archivo temporal comprimido
+                          fs.unlink(rutaComprimido, () => {});
+                        }
+                      });
+                    });
+                  }, 1000);
                 }
               }
-              
 
               if (completados === archivos.length) {
                 loading.style.display = "none";
-                success.style.display = "block";
                 comprimirBtn.disabled = false;
+                
+                if (exitosos > 0) {
+                  success.style.display = "block";
+                  resultado.innerHTML += `<p style="color:blue"><strong>📊 ${exitosos}/${archivos.length} archivos procesados</strong></p>`;
+                }
               }
             }
           );
         } catch (error) {
           completados++;
-          console.error('Error creando archivo temporal:', error);
-          resultado.innerHTML += `<p style="color:red">❌ Error al procesar ${archivo.name}</p>`;
+          resultado.innerHTML += `<p style="color:red">❌ ${archivo.name}: Error de procesamiento</p>`;
           
           if (completados === archivos.length) {
             loading.style.display = "none";
