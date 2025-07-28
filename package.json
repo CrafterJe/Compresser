@@ -1,6 +1,6 @@
 {
   "name": "compresorelectronapp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Compresor de Archivos para Windows",
   "main": "main.js",
   "author": "Raúl",
