@@ -1,0 +1,68 @@
+body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: 40px auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    input[type="file"] {
+      margin-top: 10px;
+    }
+
+    .select-compresion {
+      margin: 20px 0;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #resultado {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    #btnVolver {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background-color: #e0e0e0;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    #btnVolver:hover {
+      background-color: #ccc;
+    }
+    .modo-carga {
+      margin-bottom: 15px;
+      font-size: 15px;
+    }
+    
+    .modo-carga label {
+      cursor: pointer;
+    }
+    
