@@ -43,7 +43,7 @@ function crearVentanaPrincipal() {
   ventanaPrincipal.loadFile(path.join(__dirname, 'frontend', 'views', 'home.html'));
   
   // Opcional: Abrir DevTools en desarrollo
-  ventanaPrincipal.webContents.openDevTools();
+  //ventanaPrincipal.webContents.openDevTools();
 }
 // ===== HANDLERS IPC COMPLETOS =====
 

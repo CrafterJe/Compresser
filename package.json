@@ -26,7 +26,7 @@
     ],
     "extraResources": [
       {
-        "from": "/",
+        "from": "python-embed/",
         "to": "python"
       },
       {
@@ -47,7 +47,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Compresor de Archivos"
+      "shortcutName": "Compresor de Archivos",
+      "license": "LICENSE.txt"
     }
   },
   "devDependencies": {
